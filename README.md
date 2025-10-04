@@ -114,6 +114,7 @@ If you use this code or methodology in your research, please cite our paper:
   howpublished = {\url{https://github.com/arozcan/ground-truth-free-ser}},
   note         = {Accessed: 2025-10-04}
 }
+```
 
 ---
 
