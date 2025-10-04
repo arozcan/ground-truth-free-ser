@@ -106,11 +106,14 @@ python eval_emotion2vec.py   --csv_path csv_with_emb_dual/val.csv
 
 If you use this code or methodology in your research, please cite our paper:
 
-```
-Ozcan, A.R.; Figen, G.A.  
-"A Ground-Truth-Free Framework for Validating Emotions in Generative AI Speech Synthesis."  
-Sensors, Special Issue on Advanced Signal Processing for Affective Computing, 2025.
-```
+```bibtex
+@misc{Ozcan2025SER,
+  author       = {Ahmet Remzi Ozcan and Figen G. Alper},
+  title        = {A Ground-Truth-Free Framework for Validating Emotions in Generative AI Speech Synthesis},
+  year         = {2025},
+  howpublished = {\url{https://github.com/arozcan/ground-truth-free-ser}},
+  note         = {Accessed: 2025-10-04}
+}
 
 ---
 
