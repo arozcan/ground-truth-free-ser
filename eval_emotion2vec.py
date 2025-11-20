@@ -11,14 +11,14 @@ from funasr import AutoModel
 ALL_LABELS = ['angry', 'disgusted', 'fearful', 'happy', 'neutral', 'sad', 'surprised', '<unk>']
 
 def load_csv(csv_path, tts_filter=None):
-    """val.csv dosyasını oku; gerekli kolonları doğrula ve opsiyonel TTS filtresi uygula."""
+    """Load val.csv; validate required columns and optionally apply a TTS filter."""
     df = pd.read_csv(csv_path)
     required = {"wav_path", "emotion", "tts"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"CSV missing required columns: {missing}")
 
-    # Temizlik
+    # Cleanup and normalization
     df = df.copy()
     df["emotion"] = df["emotion"].str.lower().str.strip()
     df["tts"] = df["tts"].str.lower().str.strip()
@@ -29,7 +29,7 @@ def load_csv(csv_path, tts_filter=None):
         keep = {t.strip().lower() for t in tts_filter.split(",")}
         df = df[df["tts"].isin(keep)]
 
-    # Var olmayan wav dosyalarını düş
+    # Drop rows with missing or non-existent wav files
     exists_mask = df["wav_path"].apply(lambda p: isinstance(p, str) and os.path.exists(p))
     missing_count = (~exists_mask).sum()
     if missing_count:
@@ -41,7 +41,7 @@ def load_csv(csv_path, tts_filter=None):
     return df
 
 def predict_emotion(model, wav_path):
-    """FunASR ile tek dosya için en yüksek skorlu etiketi döndür."""
+    """Use FunASR to return the top-scoring label and its score for a single file."""
     try:
         result = model.generate(
             wav_path,
@@ -52,11 +52,20 @@ def predict_emotion(model, wav_path):
         labels = result[0]["labels"]          # e.g. ["emotion/angry", ...]
         scores = result[0]["scores"]
         cleaned = [lab.split("/")[-1] for lab in labels]
-        top = cleaned[scores.index(max(scores))]
-        return top if top in ALL_LABELS else "<unk>"
+        # top-1
+        if isinstance(scores, (list, tuple)) and len(scores) == len(cleaned) and len(scores) > 0:
+            max_idx = int(scores.index(max(scores)))
+            top = cleaned[max_idx]
+            top_score = float(scores[max_idx])
+        else:
+            # Unexpected format; still try to return a label
+            top = cleaned[0] if cleaned else "<unk>"
+            top_score = None
+        top = top if top in ALL_LABELS else "<unk>"
+        return top, top_score
     except Exception as e:
         print(f"[ERR] Prediction failed for {wav_path}: {e}")
-        return "<unk>"
+        return "<unk>", None
 
 def evaluate_overall(y_true, y_pred, title="Overall"):
     """Genel metrikleri yazdır."""
@@ -79,9 +88,13 @@ def main():
                         help="Comma-separated TTS subset to evaluate (e.g., 'azure,openai'). If omitted, use all.")
     parser.add_argument("--limit", type=int, default=None,
                         help="Optional cap on number of rows for quick runs.")
+    parser.add_argument("--mode", type=str, choices=["eval", "dump"], default="eval",
+                        help="Run mode: 'eval' prints metrics, 'dump' saves per-sample predictions to CSV and exits.")
+    parser.add_argument("--out_csv", type=str, default="results/emotion2vec_scores.csv",
+                        help="When --mode dump, path to save per-sample predictions CSV.")
     args = parser.parse_args()
 
-    # 1) CSV'yi yükle
+    # 1) Load CSV
     df = load_csv(args.csv_path, args.tts_filter)
     if args.limit is not None:
         df = df.iloc[:args.limit].reset_index(drop=True)
@@ -91,31 +104,54 @@ def main():
     print("[INFO] Loading FunASR model: iic/emotion2vec_plus_large")
     model = AutoModel(model="iic/emotion2vec_plus_large", hub="hf", disable_update=True)
 
-    # 3) Tahminler
+    # 3) Predictions
     y_true, y_pred, tts_list = [], [], []
     per_tts_true = defaultdict(list)
     per_tts_pred = defaultdict(list)
+    rows = []  # dump modu için satırlar
 
     for i, row in df.iterrows():
         wav = row["wav_path"]
         gt = row["emotion"]
         tts = row["tts"]
-        pred = predict_emotion(model, wav)
+        pid = str(row["prompt_id"]) if "prompt_id" in df.columns else None
+
+        pred_label, pred_score = predict_emotion(model, wav)
 
         y_true.append(gt)
-        y_pred.append(pred)
+        y_pred.append(pred_label)
         tts_list.append(tts)
 
         per_tts_true[tts].append(gt)
-        per_tts_pred[tts].append(pred)
+        per_tts_pred[tts].append(pred_label)
+
+        # Keep one row for dump mode
+        rows.append({
+            "tts": tts,
+            "prompt_id": pid,
+            "wav_path": wav,
+            "emotion": gt,
+            "emotion_pred": pred_label,
+            "top_score": pred_score,
+        })
 
         if (i + 1) % 50 == 0:
             print(f"[INFO] Processed {i+1}/{len(df)}")
 
-    # 4) Genel sonuçlar
+    # 3.5) Dump mode: save to CSV and exit
+    if args.mode == "dump":
+        out_dir = os.path.dirname(args.out_csv)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        out_df = pd.DataFrame(rows)
+        out_df.to_csv(args.out_csv, index=False)
+        print(f"[OK] Saved per-sample predictions to: {args.out_csv} (N={len(out_df)})")
+        return
+
+    # 4) Overall results
     overall_acc, overall_cm = evaluate_overall(y_true, y_pred, title="Overall")
 
-    # 5) TTS-bazlı sonuçlar
+    # 5) Per-TTS results
     print("\n=== Per-TTS Breakdown ===")
     summary_rows = []
     for tts in sorted(per_tts_true.keys()):

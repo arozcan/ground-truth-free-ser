@@ -1,0 +1,71 @@
+{
+  "accuracy": 0.7357142857142858,
+  "classification_report": "              precision    recall  f1-score   support\n\n       angry     0.7647    0.6500    0.7027        40\n   disgusted     0.7619    0.8000    0.7805        40\n     fearful     0.8966    0.6500    0.7536        40\n       happy     0.6170    0.7250    0.6667        40\n     neutral     0.7000    0.8750    0.7778        40\n         sad     0.7400    0.9250    0.8222        40\n   surprised     0.7500    0.5250    0.6176        40\n\n    accuracy                         0.7357       280\n   macro avg     0.7472    0.7357    0.7316       280\nweighted avg     0.7472    0.7357    0.7316       280\n",
+  "confusion_matrix": {
+    "angry": {
+      "angry": 26,
+      "disgusted": 2,
+      "fearful": 2,
+      "happy": 0,
+      "neutral": 0,
+      "sad": 0,
+      "surprised": 4
+    },
+    "disgusted": {
+      "angry": 4,
+      "disgusted": 32,
+      "fearful": 3,
+      "happy": 1,
+      "neutral": 0,
+      "sad": 0,
+      "surprised": 2
+    },
+    "fearful": {
+      "angry": 1,
+      "disgusted": 0,
+      "fearful": 26,
+      "happy": 0,
+      "neutral": 0,
+      "sad": 0,
+      "surprised": 2
+    },
+    "happy": {
+      "angry": 0,
+      "disgusted": 1,
+      "fearful": 2,
+      "happy": 29,
+      "neutral": 4,
+      "sad": 0,
+      "surprised": 11
+    },
+    "neutral": {
+      "angry": 2,
+      "disgusted": 5,
+      "fearful": 0,
+      "happy": 5,
+      "neutral": 35,
+      "sad": 3,
+      "surprised": 0
+    },
+    "sad": {
+      "angry": 6,
+      "disgusted": 0,
+      "fearful": 4,
+      "happy": 2,
+      "neutral": 1,
+      "sad": 37,
+      "surprised": 0
+    },
+    "surprised": {
+      "angry": 1,
+      "disgusted": 0,
+      "fearful": 3,
+      "happy": 3,
+      "neutral": 0,
+      "sad": 0,
+      "surprised": 21
+    }
+  },
+  "mean_eas": 0.8630665304405348,
+  "ims": null
+}

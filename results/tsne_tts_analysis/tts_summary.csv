@@ -1,0 +1,5 @@
+tts,n,silhouette,knn_impurity_mean,top_alt_pairs
+azure,70,0.391,0.317,angry->fearful (6); disgusted->angry (10); fearful->surprised (10); happy->surprised (10); neutral->disgusted (5); sad->angry (10); surprised->fearful (5)
+cosyvoice2,70,-0.005,0.654,angry->sad (5); disgusted->fearful (5); fearful->surprised (4); happy->angry (3); neutral->disgusted (4); sad->angry (6); surprised->happy (4)
+genai,70,0.725,0.149,angry->surprised (10); disgusted->fearful (10); fearful->disgusted (8); happy->surprised (10); neutral->happy (10); sad->disgusted (10); surprised->happy (6)
+openai,70,0.222,0.486,angry->fearful (7); disgusted->angry (4); fearful->surprised (8); happy->surprised (5); neutral->happy (9); sad->angry (10); surprised->fearful (6)

@@ -5,18 +5,18 @@ import torch
 
 # Fold klasörleri
 REF_SPK_DIRS = [
-    "/home/arms/Workspace/emotion/vibes/output/sentences/genai/fold_1_zephyr",
-    "/home/arms/Workspace/emotion/vibes/output/sentences/genai/fold_2_leda",
-    "/home/arms/Workspace/emotion/vibes/output/sentences/genai/fold_3_fenrir",
-    "/home/arms/Workspace/emotion/vibes/output/sentences/genai/fold_4_kore",
-    "/home/arms/Workspace/emotion/vibes/output/sentences/genai/fold_5_charon",
+    "output/sentences/genai/fold_1_zephyr",
+    "output/sentences/genai/fold_2_leda",
+    "output/sentences/genai/fold_3_fenrir",
+    "output/sentences/genai/fold_4_kore",
+    "output/sentences/genai/fold_5_charon",
 ]
 
 # Birleştirilecek dosyalar (varsa “1.wav” doğru; bazı setlerde “01.wav” olabilir)
 TARGET_FILES = ["1.wav", "31.wav", "41.wav", "51.wav"]
 
 # Çıkış klasörü
-OUT_DIR = Path("/home/arms/Workspace/emotion/vibes/cosyvoice/")
+OUT_DIR = Path("cosyvoice/")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def concat_wavs(file_list, out_path):

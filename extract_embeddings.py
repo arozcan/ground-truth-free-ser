@@ -8,7 +8,7 @@ from typing import Optional, List
 
 import numpy as np
 
-# ---- Ortak yardımcılar -------------------------------------------------------
+# ---- Common helpers ----------------------------------------------------------
 def sha1_of_path(p: str) -> str:
     return hashlib.sha1(os.path.abspath(p).encode("utf-8")).hexdigest()
 
@@ -28,11 +28,11 @@ def extract_e2vplus_embedding(
     wav_path: str,
     model_id: str = "iic/emotion2vec_plus_large",
     keys_try: Optional[List[str]] = None,
-    pooling: str = "mean",  # "mean" burada sadece çok-boyutlu çıktı olursa devrede
+    pooling: str = "mean",  # "mean" only matters when the output is multi-dimensional
 ) -> np.ndarray:
     """
-    FunASR emotion2vec+ çıktısından tek vektör (float32) döndürür.
-    Farklı sürümlerde farklı anahtar adları olabildiği için birkaç olası anahtarı dener.
+    Returns a single float32 embedding vector from the FunASR emotion2vec+ output.
+    Tries multiple possible keys because different versions may use different field names.
     """
     if keys_try is None:
         keys_try = ["embedding", "embeddings", "feats", "vector", "vectors", "spk_embedding"]
@@ -73,8 +73,8 @@ def setup_device():
 
 def get_wavlm(model_id: str = "microsoft/wavlm-large"):
     """
-    transformers sürümünden bağımsız olarak WavLM modelini ve uygun işlemci/feature extractor'ı yükler.
-    Önce AutoProcessor, sonra WavLMFeatureExtractor, en sonda Wav2Vec2FeatureExtractor denenir.
+    Load the WavLM model and a suitable processor/feature extractor independently of transformers version.
+    Tries AutoProcessor first, then WavLMFeatureExtractor, and finally Wav2Vec2FeatureExtractor as fallbacks.
     """
     global _WAVLM, _WAVLM_PROC
     if _WAVLM is not None and _WAVLM_PROC is not None:
@@ -87,8 +87,8 @@ def get_wavlm(model_id: str = "microsoft/wavlm-large"):
         from transformers import AutoProcessor
         proc = AutoProcessor.from_pretrained(model_id)
     except Exception:
+        # This class exists in some older versions
         try:
-            # Eski bazı sürümlerde bu sınıf var
             from transformers import WavLMFeatureExtractor
             proc = WavLMFeatureExtractor.from_pretrained(model_id)
         except Exception:
@@ -111,7 +111,7 @@ def extract_wavlm_embedding(
     demean: bool = False,
 ) -> np.ndarray:
     """
-    WavLM hidden_states -> (katman seçimi/aralığı) -> (opsiyonel demean) -> pooling -> tek vektör (float32)
+    WavLM hidden_states -> (layer selection/range) -> (optional demean) -> pooling -> single float32 vector.
     """
     import librosa
     import torch
@@ -127,27 +127,27 @@ def extract_wavlm_embedding(
         attention_mask = attention_mask.to(setup_device())
 
     with torch.no_grad():
-        # hidden_states'i iste
+        # Request hidden_states
         out = model(input_values, attention_mask=attention_mask, output_hidden_states=True)
 
-        # Katman seçimi
+        # Layer selection
         if wavlm_layer is not None:
             hs = out.hidden_states[wavlm_layer]         # (1, T, D)
         else:
-            # Aralığı güvenli hale getir
+            # Make the layer range safe
             if not wavlm_layer_range:
-                wavlm_layer_range = [6, 10]             # default: 6..9 ortalaması
+                wavlm_layer_range = [6, 10]             # default: average of layers 6..9
             s, e = wavlm_layer_range
             s = max(0, s); e = min(len(out.hidden_states), e)
-            assert e > s, "wavlm_layer_range geçersiz (end > start olmalı)"
+            assert e > s, "wavlm_layer_range invalid (end must be greater than start)"
             hs_stack = torch.stack(out.hidden_states[s:e], dim=0)  # (K, 1, T, D)
             hs = hs_stack.mean(0)                                  # (1, T, D)
 
-        # (opsiyonel) per-dim demean: lexical bias'ı biraz azaltır
+        # (Optional) per-dimension demean: slightly reduces lexical bias
         if demean:
             hs = hs - hs.mean(dim=1, keepdim=True)
 
-        # Zamansal pooling
+        # Temporal pooling
         if pooling == "cls" and hs.shape[1] > 0:
             emb = hs[:, 0].squeeze(0)                # (D,)
         elif pooling == "max":
@@ -157,7 +157,7 @@ def extract_wavlm_embedding(
 
     return emb.detach().cpu().numpy().astype(np.float32)
 
-# ---- Ana iş akışı ------------------------------------------------------------
+# ---- Main workflow -----------------------------------------------------------
 def process_csv(
     in_csv: str,
     out_csv: str,
@@ -172,8 +172,8 @@ def process_csv(
     demean: bool = False,
 ):
     """
-    Girdi CSV: en azından 'wav_path', 'emotion' beklenir (varsa 'prompt_id' korunur).
-    Çıktı CSV: 'emb_path' sütunu eklenmiş şekilde yazılır.
+    Input CSV: expects at least 'wav_path' and 'emotion' (keeps 'prompt_id' if present).
+    Output CSV: writes the same rows with an added 'emb_path' column.
     """
     rows = []
     with open(in_csv, newline="", encoding="utf-8") as f:
@@ -211,7 +211,7 @@ def process_csv(
                     np.save(emb_path, emb)
                 except Exception as e:
                     print(f"[WARN] embedding failed: {wav_path} -> {e}")
-                    r["emb_path"] = ""  # başarısızsa boş bırak
+                    r["emb_path"] = ""  # leave empty if embedding failed
 
             rows.append(r)
 
@@ -228,7 +228,7 @@ def main():
     ap.add_argument("--backend", type=str, default="wavlm",
                     choices=["e2vplus", "wavlm"], help="Embedding backend")
     ap.add_argument("--model_id", type=str,
-                    help="Model ID (HuggingFace veya FunASR)")
+                    help="Model ID (HuggingFace or FunASR)")
     ap.add_argument("--in_csvs", nargs="+", default=["csv/train.csv", "csv/val.csv"],
                     help="Input CSV paths (e.g., train.csv val.csv)")
     ap.add_argument("--out_dir", type=str, default="csv_with_emb_wavlm",
@@ -243,21 +243,21 @@ def main():
                     choices=["mean", "cls","max"],
                     help="Temporal pooling strategy")
     ap.add_argument("--wavlm_layer", type=int, default=None,
-                help="Tek bir katmanı kullan (0=embeddings, 1..N).")
+                help="Use a single layer (0=embeddings, 1..N).")
     ap.add_argument("--wavlm_layer_range", nargs=2, type=int, default=[6, 10],
-                    help="[start end) aralığındaki katmanları ortala; ör. 6 10 -> 6,7,8,9.")
+                    help="Average layers in the [start end) range, e.g., 6 10 -> layers 6,7,8,9.")
     ap.add_argument("--demean", action="store_true",
-                    help="Zamansal pooling öncesi frame vektörlerinden per-dim ortalamayı çıkar.")
+                    help="Subtract per-dimension mean over time from frame vectors before temporal pooling.")
     args = ap.parse_args()
 
-    # backend'e göre varsayılan model_id
+    # Default model_id based on backend
     if not args.model_id:
         args.model_id = "iic/emotion2vec_plus_large" if args.backend == "e2vplus" else "microsoft/wavlm-large"
 
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
     Path(args.emb_root).mkdir(parents=True, exist_ok=True)
 
-    # modelleri önceden 1 kez yüklemek (ilk çağrı latency'sini azaltır)
+    # Load models once in advance (reduces latency on first call)
     if args.backend == "e2vplus":
         get_funasr_model(args.model_id)
     else:

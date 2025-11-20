@@ -7,13 +7,13 @@ from scipy.signal import resample
 import numpy as np
 
 os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY"
-# OpenAI istemcisi (API Key ortam değişkeninden alır)
+# OpenAI client (reads API key from environment variable)
 client = OpenAI()
 
 CSV_PATH = "emotion_sentences.csv"
 OUTPUT_DIR = "output/sentences/openai"
 
-# Kullanılacak konuşmacılar
+# Speakers to be used
 # fold_1: nova
 # fold_2: coral
 # fold_3: echo
@@ -21,7 +21,7 @@ OUTPUT_DIR = "output/sentences/openai"
 # fold_5: verse
 SPEAKERS = ["nova", "coral", "echo", "onyx", "verse"]
 
-# Prompta duygu düzeyine göre şablonlar
+# Prompt templates conditioned by emotional intensity
 PROMPT_TEMPLATES = {
     "basic": lambda emotion: f"Speak in a {emotion} tone.",
     "moderate": lambda emotion: (
@@ -35,7 +35,7 @@ PROMPT_TEMPLATES = {
 }
 
 def resample_to_16k(input_path, output_path):
-    """24kHz WAV dosyasını 16kHz int16 formatında yeniden örnekler"""
+    """Resample a 24kHz WAV file to 16kHz int16 format"""
     rate, data = wavfile.read(input_path)
     if data.ndim > 1:
         data = data[:, 0]
@@ -46,7 +46,7 @@ def resample_to_16k(input_path, output_path):
 
 def generate_all(prompt_level="rich", selected_speakers=None):
     if selected_speakers is None:
-        selected_speakers = SPEAKERS[:1]  # İlk 5'ini varsayılan al
+        selected_speakers = SPEAKERS[:1]  # Take the first 5 as default (or first one for testing)
 
     with open(CSV_PATH, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -80,5 +80,5 @@ def generate_all(prompt_level="rich", selected_speakers=None):
                     print(f"❌ Error [{speaker} {sentence_id}]: {e}")
 
 if __name__ == "__main__":
-    # Değiştirilebilir parametreler
+    # Configurable parameters
     generate_all(prompt_level="basic", selected_speakers=["nova"])

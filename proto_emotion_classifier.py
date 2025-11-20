@@ -14,6 +14,10 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import pandas as pd
 
 # -----------------------------
@@ -44,13 +48,13 @@ class SERProtoDataset(Dataset):
                     "y": EMO2IDX[emo],
                     "prompt_id": r.get("prompt_id"),
                     "intensity": r.get("intensity"),
-                    "emb_path": r.get("emb_path"),     # eski e2v kolon adı olabilir
+                    "emb_path": r.get("emb_path"),     # legacy e2v column name for backward compatibility
                     "emb_e2v": r.get("emb_e2v"),
                     "emb_wavlm": r.get("emb_wavlm"),
                     "tts": r.get("tts")
                 })
 
-        # --- Boyutları otomatik çıkar ---
+        # --- Automatically infer embedding dimensions ---
         self.dim_e2v = self._infer_dim(stream="e2v")
         self.dim_wavlm = self._infer_dim(stream="wavlm")
 
@@ -65,11 +69,11 @@ class SERProtoDataset(Dataset):
                     return int(v.shape[-1])
                 except Exception:
                     continue
-        # Eğer hiç bulunamazsa: akış kullanılmayacaksa None; kullanılacaksa makul varsayılan
+        # If nothing is found: return None if the stream will not be used, otherwise fall back to a reasonable default
         if self.emb_mode in ("e2v", "both") and stream == "e2v":
             return 1024  # emotion2vec+ tipik
         if self.emb_mode in ("wavlm", "both") and stream == "wavlm":
-            return 768   # WavLM-Base için makul varsayılan (Large ise 1024)
+            return 1024   # WavLM-Base için makul varsayılan (Large ise 1024)
         return None
 
     def _load_vec(self, p):
@@ -85,11 +89,11 @@ class SERProtoDataset(Dataset):
 
     def __getitem__(self, idx):
         it = self.items[idx]
-        # E2V yolu: yeni kolon -> yoksa geriye dönük 'emb_path'
+        # E2V path: prefer the new column, fall back to legacy 'emb_path' if needed
         x_e2v = self._load_vec(it.get("emb_e2v") or it.get("emb_path")) if self.emb_mode in ("e2v", "both") else None
         x_wavlm = self._load_vec(it.get("emb_wavlm")) if self.emb_mode in ("wavlm", "both") else None
 
-        # Eksikse boyuta uygun dummy
+        # If missing, create a dummy vector with the appropriate dimension
         if x_e2v is None and (self.emb_mode in ("e2v", "both")):
             x_e2v = np.zeros((self.dim_e2v or 1024,), dtype=np.float32)
         if x_wavlm is None and (self.emb_mode in ("wavlm", "both")):
@@ -108,7 +112,7 @@ class SERProtoDataset(Dataset):
         }
         return sample, y, meta
 
-    # Modelin giriş boyutlarını okuyabilmek için yardımcı
+    # Helper to read the model's input dimensions
     def inferred_dims(self) -> Tuple[Optional[int], Optional[int]]:
         return self.dim_e2v, self.dim_wavlm
 # -----------------------------
@@ -157,7 +161,7 @@ class FusionProtoClassifier(nn.Module):
             fused_dim = proj_dim
 
         else:
-            # iki akış
+            # two-stream fusion
             if fusion == "avg":
                 self.proj_e2v = nn.Sequential(
                     nn.Linear(d_e2v, proj_dim), nn.LayerNorm(proj_dim),
@@ -168,10 +172,10 @@ class FusionProtoClassifier(nn.Module):
                     nn.GELU(), nn.Dropout(dropout)
                 )
                 if learn_fusion_alpha:
-                    # öğrenilebilir parametre
+                    # learnable fusion weight parameter
                     self.fusion_alpha = nn.Parameter(torch.tensor(float(fusion_alpha)))
                 else:
-                    # sabit parametre (buffer olarak tutulur)
+                    # fixed fusion weight stored as a buffer
                     self.register_buffer("fusion_alpha", torch.tensor(float(fusion_alpha)))
                 fused_dim = proj_dim
             elif fusion == "concat":
@@ -205,7 +209,7 @@ class FusionProtoClassifier(nn.Module):
             if self.fusion == "avg":
                 z_e2v = self.proj_e2v(x_e2v)
                 z_wav = self.proj_wav(x_wavlm)
-                alpha = torch.clamp(self.fusion_alpha, 0.0, 1.0)  # güvenlik
+                alpha = torch.clamp(self.fusion_alpha, 0.0, 1.0)  # safety clamp
                 z = alpha * z_e2v + (1.0 - alpha) * z_wav
             elif self.fusion == "concat":
                 z = torch.cat([z_e2v, z_wav], dim=-1)
@@ -269,19 +273,19 @@ def train_one_epoch(model, loader, opt, device, label_smoothing=0.0, proto_ema=0
         loss.backward()
         opt.step()
 
-        # ----- EMA prototype update (grad yok) -----
+        # ----- EMA prototype update (no gradients) -----
         with torch.no_grad():
-            # z zaten L2-normalize; prototipleri de normalize tutmak faydalı
+            # z is already L2-normalized; keeping prototypes normalized is beneficial
             for c in range(C):
                 m = (y == c)
                 if m.any():
                     cls_mean = z[m].mean(dim=0)  # (D,)
-                    # new = ema * old + (1-ema) * batch_mean
+                    # new = ema * old + (1 - ema) * batch_mean
                     model.prototypes.data[c].mul_(proto_ema).add_(cls_mean, alpha=(1.0 - proto_ema))
-                    # İsteğe bağlı: prototipi birim-normda tut
+                    # Optionally keep each prototype at unit norm
                     model.prototypes.data[c] = F.normalize(model.prototypes.data[c], dim=0)
 
-        # ----- metrikler -----
+        # ----- metrics accumulation -----
         with torch.no_grad():
             pred = logits.argmax(-1)
             n = y.numel()
@@ -348,18 +352,18 @@ def evaluate(model, loader, device, report_path: Optional[str] = None,
 def evaluate_tts(model, loader, device, report_path: Optional[str] = None, verbose: bool = True):
     model.eval()
     all_preds, all_targets, metas_accum = [], [], []
-    all_eas = []  # <-- EAS birikimi
+    all_eas = []  # <-- accumulate EAS values
 
     for batch_x, y, metas in loader:
         x_e2v = batch_x["x_e2v"].to(device) if batch_x["x_e2v"] is not None else None
         x_wavlm = batch_x["x_wavlm"].to(device) if batch_x["x_wavlm"] is not None else None
         y = y.to(device)
 
-        # z'yi al ki EAS hesaplayabilelim
+        # obtain z so we can compute EAS
         logits, z, _ = model(x_e2v=x_e2v, x_wavlm=x_wavlm)
         pred = logits.argmax(-1)
 
-        # batch EAS
+        # batch-level EAS
         eas = model.compute_eas(z, y)  # (B,)
         all_eas.extend(eas.detach().cpu().tolist())
 
@@ -372,7 +376,7 @@ def evaluate_tts(model, loader, device, report_path: Optional[str] = None, verbo
     y_true = [idx2emo[i] for i in all_targets]
     y_pred = [idx2emo[i] for i in all_preds]
 
-    # ---- Genel özet
+    # ---- Overall summary
     overall_acc = accuracy_score(y_true, y_pred)
     overall_report = classification_report(
         y_true, y_pred, labels=EMOTIONS, digits=4, zero_division=0, output_dict=True
@@ -381,7 +385,7 @@ def evaluate_tts(model, loader, device, report_path: Optional[str] = None, verbo
     overall_cm_df = pd.DataFrame(overall_cm, index=EMOTIONS, columns=EMOTIONS)
     overall_mean_eas = float(np.mean(all_eas)) if len(all_eas) > 0 else None
 
-    # ---- TTS bazında
+    # ---- Per-TTS breakdown
     tts_set = sorted({(m.get("tts") or "unknown") for m in metas_accum})
     per_tts = {}
     table_rows = []
@@ -410,7 +414,7 @@ def evaluate_tts(model, loader, device, report_path: Optional[str] = None, verbo
         }
         table_rows.append((tts_name, len(idxs), acc, mean_eas_tts))
 
-    # Konsol çıktısı (özet tablo + detaylar)
+    # Console output (summary table + detailed per-TTS reports)
     if verbose:
         print("\n🔍 TTS-based Accuracy")
         print(f"{'TTS':<24}{'N':>6}{'Acc':>10}{'Mean EAS':>12}")
@@ -483,6 +487,101 @@ def compute_ims_score(eas_list: List[float], metas: List[dict], y_true_idx: List
     return {"monotonic_fraction": good / total, "count": total}
 
 # -----------------------------
+# Feature export & t-SNE utilities
+# -----------------------------
+@torch.no_grad()
+def export_embeddings(model, loader, device, out_npz: str = "results/val_embeddings.npz"):
+    """
+    Export fused (pre-logit) embeddings used for cosine classification and EAS.
+    For emb_mode='both':
+      - z_e2v:  projected Emotion2Vec+ features (after linear+LN+GELU+dropout)
+      - z_wav:  projected WavLM features     (after linear+LN+GELU+dropout or GaussianNoise if defined)
+      - z:      fused feature after fusion layer (for projcat: fuse( concat(z_e2v, z_wav) ))
+                then L2-normalized (this is the representation used against prototypes)
+    Saved fields:
+      - z (N,D), optionally z_e2v (N,d), z_wav (N,d)
+      - emotion (list[str]), y (int labels), tts (list[str]), prompt_id (list), wav_path (list[str])
+      - pred (int), top_score (float softmax prob)
+      - prototypes (C,D) [L2-normalized], classes (list[str])
+    """
+    model.eval()
+    Z_fused, Z_e2v, Z_wav = [], [], []
+    emos, yidx, tts_list, pids, wavs = [], [], [], [], []
+    preds, tops = [], []
+
+    for batch_x, y, metas in loader:
+        x_e2v = batch_x["x_e2v"].to(device) if batch_x["x_e2v"] is not None else None
+        x_wav = batch_x["x_wavlm"].to(device) if batch_x["x_wavlm"] is not None else None
+        y = y.to(device)
+
+        # Manually mirror forward pass to access per-stream projections
+        if model.emb_mode in ("e2v", "wavlm"):
+            z_fused = model.proj_single(x_e2v if model.emb_mode == "e2v" else x_wav)
+            z_e2v = None
+            z_wav = None
+        else:
+            z_e2v = model.proj_e2v(x_e2v)
+            z_wav = model.proj_wav(x_wav)
+            if model.fusion == "avg":
+                alpha = torch.clamp(getattr(model, "fusion_alpha"), 0.0, 1.0)
+                z_fused = alpha * z_e2v + (1.0 - alpha) * z_wav
+            elif model.fusion == "concat":
+                z_fused = torch.cat([z_e2v, z_wav], dim=-1)
+            else:  # projcat
+                z_fused = model.fuse(torch.cat([z_e2v, z_wav], dim=-1))
+
+        # Normalize (this is the exact z used for cosine/prototypes)
+        z = F.normalize(z_fused, dim=-1)
+
+        # logits/pred/top prob for context
+        E = F.normalize(model.prototypes, dim=-1)
+        logits = torch.matmul(z, E.t()) * torch.exp(model.log_scale)
+        prob = torch.softmax(logits, dim=-1)
+        pred = logits.argmax(-1)
+        top = prob[torch.arange(prob.size(0)), pred]
+
+        # Accumulate
+        Z_fused.append(z.detach().cpu().float().numpy())
+        if z_e2v is not None:
+            Z_e2v.append(z_e2v.detach().cpu().float().numpy())
+            Z_wav.append(z_wav.detach().cpu().float().numpy())
+        preds.extend(pred.cpu().tolist())
+        tops.extend(top.cpu().tolist())
+
+        idx2emo = {i: e for e, i in EMO2IDX.items()}
+        yidx.extend(y.cpu().tolist())
+        emos.extend([idx2emo[i] for i in y.cpu().tolist()])
+        for m in metas:
+            tts_list.append(m.get("tts"))
+            pids.append(m.get("prompt_id"))
+            wavs.append(m.get("wav_path"))
+
+    pack = {
+        "z": np.vstack(Z_fused),
+        "emotion": np.array(emos),
+        "y": np.array(yidx, dtype=np.int64),
+        "tts": np.array(tts_list),
+        "prompt_id": np.array(pids),
+        "wav_path": np.array(wavs),
+        "pred": np.array(preds, dtype=np.int64),
+        "top_score": np.array(tops, dtype=np.float32),
+        "prototypes": F.normalize(model.prototypes, dim=-1).detach().cpu().numpy(),
+        "classes": np.array(EMOTIONS),
+    }
+    if len(Z_e2v) > 0:
+        pack["z_e2v"] = np.vstack(Z_e2v)
+        pack["z_wav"] = np.vstack(Z_wav)
+
+    out_dir = os.path.dirname(out_npz)
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+    np.savez(out_npz, **pack)
+    print(f"[OK] Exported embeddings to {out_npz} "
+          f"(z shape={pack['z'].shape}, prototypes={pack['prototypes'].shape})")
+
+
+
+# -----------------------------
 # Reranking (per prompt_id)
 # -----------------------------
 @torch.no_grad()
@@ -520,24 +619,92 @@ def rerank_by_eas(model, csv_path: str, device, topk: int = 1,
     print(f"[OK] Reranked results saved to {out_csv}")
     return top_df
 
+@torch.no_grad()
+def dump_eas_csv(model, loader, device, out_csv: str = "eas_scores.csv", scale_eas_to_7: bool = False):
+    """
+    For each sample, compute the EAS score with respect to the true label and write it to a CSV file.
+    Columns:
+      - emotion         (true emotion string)
+      - wav_path
+      - eas             (0..1)
+      - eas_x7          (optional; linearly scaled to 1..7)
+      - pred_emotion
+      - tts
+      - prompt_id
+      - intensity (currently commented out in the output)
+    """
+    model.eval()
+    rows = []
+    idx2emo = {i: e for e, i in EMO2IDX.items()}
+
+    for batch_x, y, metas in loader:
+        x_e2v = batch_x["x_e2v"].to(device) if batch_x["x_e2v"] is not None else None
+        x_wavlm = batch_x["x_wavlm"].to(device) if batch_x["x_wavlm"] is not None else None
+        y = y.to(device)
+
+        logits, z, _ = model(x_e2v=x_e2v, x_wavlm=x_wavlm)
+        pred = logits.argmax(-1)
+        eas = model.compute_eas(z, y)  # true label'a göre EAS
+        probs = torch.softmax(logits, dim=-1)
+
+        for i in range(y.size(0)):
+            emo_true = idx2emo[y[i].item()]
+            emo_pred = idx2emo[pred[i].item()]
+            meta = metas[i]
+            wav_path = meta.get("wav_path")
+            pid = meta.get("prompt_id")
+            intensity = meta.get("intensity")
+            tts = meta.get("tts")
+            eas_val = float(eas[i].item())
+            # top-1 confidence (softmax over logits at predicted class)
+            top_conf = float(probs[i, pred[i]].item())
+
+            row = {
+                "emotion": emo_true,
+                "wav_path": wav_path,
+                "eas": eas_val,
+                "emotion_pred": emo_pred,
+                "top_score": top_conf,
+                "tts": tts,
+                "prompt_id": pid,
+                #"intensity": intensity,
+            }
+            if scale_eas_to_7:
+                row["eas_x7"] = eas_val * 7.0
+            rows.append(row)
+
+    df = pd.DataFrame(rows)
+    # Column order harmonized with dump_eas_csv style
+    ordered_cols = [ "tts", "prompt_id", "wav_path", "emotion","emotion_pred", "top_score","eas"]
+    if "eas_x7" in df.columns:
+        ordered_cols.append("eas_x7")
+    #ordered_cols += [ "intensity"]
+    df = df.reindex(columns=ordered_cols)
+    # Write CSV to disk
+    df.to_csv(out_csv, index=False)
+    print(f"[OK] EAS per-sample CSV written to: {out_csv} (N={len(df)})")
+    return df
+
 # -----------------------------
 # Main
 # -----------------------------
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="train",
-        choices=["train", "eval", "rerank", "eval_tts"],
-        help="Çalışma modu")
+        choices=["train", "eval", "rerank", "eval_tts", "dump_eas", "export_emb"],
+        help="Run mode: train / eval / rerank / eval_tts / dump_eas / export_emb")
+    parser.add_argument("--emb_npz", type=str, default="results/val_embeddings.npz",
+                        help="Path to write/read embeddings when using export_emb / plot_tsne")
     parser.add_argument("--train_csv", type=str, default="csv_with_emb_dual/train.csv",
                         help="CSV with precomputed paths (emb_e2v/emb_wavlm)")
     parser.add_argument("--val_csv", type=str, default="csv_with_emb_dual/val.csv",
                         help="CSV for validation/eval")
-    # embedding okuma seçenekleri
+    # embedding read options
     parser.add_argument("--emb_mode", type=str, default="both", choices=["e2v", "wavlm", "both"])
     parser.add_argument("--fusion", type=str, default="concat", choices=["avg","concat","projcat"])
     parser.add_argument("--input_l2norm", action="store_true",
-                    help="Girdi embeddinglerini L2-normalize et")
-    # eğitim hiperparametreleri
+                    help="L2-normalize input embeddings before feeding them to the model")
+    # training hyperparameters
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -552,25 +719,30 @@ def main():
     parser.add_argument("--early_stop_patience", type=int, default=20)
     parser.add_argument("--label_smoothing", type=float, default=0.0)
     parser.add_argument("--proto_ema", type=float, default=0.9,
-                    help="Prototip EMA momentumu (0.0=hepsi batch, 1.0=neredeyse sabit)")
+                    help="Prototype EMA momentum (0.0 = use only batch mean, 1.0 = almost fixed prototypes)")
     parser.add_argument("--freeze_prototypes", action="store_true",
-                    help="Prototipleri opt. dışı bırak (grad yok), yalnızca EMA ile güncelle")
+                    help="Exclude prototypes from optimization (no gradients), update them only via EMA")
     parser.add_argument("--fusion_alpha", type=float, default=0.5,
-                    help="Fusion=avg iken e2v için ağırlık (0..1). wavlm için 1-alpha kullanılır.")
+                    help="Fusion=avg: weight assigned to Emotion2Vec (0..1); WavLM uses 1 - alpha.")
     parser.add_argument("--learn_fusion_alpha", action="store_true",
-                    help="True olursa fusion_alpha parametresi öğrenilebilir hale gelir.")
+                    help="If set, make fusion_alpha a learnable parameter.")
+    # validation scores dump
+    parser.add_argument("--out_csv", type=str, default="eas_scores.csv",
+                        help="Output CSV path when running in dump_eas mode")
+    parser.add_argument("--scale_eas_to_7", action="store_true",
+                        help="Scale EAS from 0..1 to 1..7 and add it as an 'eas_x7' column")
 
     args = parser.parse_args()
     set_seed(args.seed)
 
-    # Dataset(ler)
+    # Datasets
     train_ds = None
     if args.mode == "train":
         train_ds = SERProtoDataset(args.train_csv, emb_mode=args.emb_mode, input_l2norm=args.input_l2norm)
 
     val_ds = SERProtoDataset(args.val_csv, emb_mode=args.emb_mode, input_l2norm=args.input_l2norm)
 
-    # Boyutlar (train varsa ondan, yoksa val'den)
+    # Dimensions (from train set if available, otherwise from validation set)
     d_e2v, d_wavlm = (train_ds.inferred_dims() if train_ds is not None else val_ds.inferred_dims())
 
     # Model
@@ -581,7 +753,7 @@ def main():
         num_classes=len(EMOTIONS),
         dropout=args.dropout,
         d_e2v=d_e2v or 1024,
-        d_wavlm=d_wavlm or 768,   # base için doğal varsayılan
+        d_wavlm=d_wavlm or 768,   # natural default for WavLM-Base
     )
     device = torch.device(args.device)
     model = model.to(device)
@@ -593,7 +765,7 @@ def main():
         print(f"[OK] Loaded checkpoint from {args.load_path}")
 
     if args.mode == "train":
-        # prototipleri veriden başlat (opsiyonel ama faydalı)
+        # initialize prototypes from data (optional but often helpful)
         init_prototypes_from_data(model, args.train_csv, emb_mode=args.emb_mode, input_l2norm=args.input_l2norm)
 
         train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,
@@ -627,7 +799,7 @@ def main():
                     print(f"[EARLY STOP] no val improvement for {bad_eps} epochs.")
                     break
 
-        # final eval dump (best checkpoint ile)
+        # final evaluation dump using the best checkpoint
         best_path = args.save_path
         if os.path.exists(best_path):
             ckpt = torch.load(best_path, map_location=device)
@@ -644,32 +816,27 @@ def main():
         val_ds = SERProtoDataset(args.val_csv, emb_mode=args.emb_mode, input_l2norm=args.input_l2norm)
         val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
                                 num_workers=2, collate_fn=collate)
-
-        # Modeli (eval ile aynı şekilde) hazırla
-        d_e2v, d_wavlm = val_ds.inferred_dims()
-        model = FusionProtoClassifier(
-            emb_mode=args.emb_mode,
-            fusion=args.fusion,
-            proj_dim=args.proj_dim,
-            num_classes=len(EMOTIONS),
-            dropout=args.dropout,
-            d_e2v=d_e2v or 1024,
-            d_wavlm=d_wavlm or 768,
-        ).to(torch.device(args.device))
-
-        if args.load_path and os.path.exists(args.load_path):
-            ckpt = torch.load(args.load_path, map_location=torch.device(args.device))
-            model.load_state_dict(ckpt["model"])
-            print(f"[OK] Loaded checkpoint from {args.load_path}")
-
-        evaluate_tts(model, val_loader, torch.device(args.device), report_path=args.report_path, verbose=True)
+        evaluate_tts(model, val_loader, device, report_path=args.report_path, verbose=True)
 
     elif args.mode == "rerank":
         rerank_by_eas(model, args.val_csv, device, topk=args.rerank_topk,
                       emb_mode=args.emb_mode, fusion=args.fusion,
                       input_l2norm=args.input_l2norm, out_csv="reranked.csv")
+    elif args.mode == "dump_eas":
+        val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
+                                num_workers=2, collate_fn=collate)
+        model.eval()
+        if not (args.load_path and os.path.exists(args.load_path)):
+            print("[WARN] --load_path not provided; EAS will be computed with randomly initialized prototypes.")
+        dump_eas_csv(model, val_loader, device, out_csv=args.out_csv, scale_eas_to_7=args.scale_eas_to_7)
 
-# ----- yardımcı: prototip init (dataset sürümü) -----
+    elif args.mode == "export_emb":
+        val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
+                                num_workers=2, collate_fn=collate)
+        export_embeddings(model, val_loader, device, out_npz=args.emb_npz)
+        return
+
+# ----- helper: prototype initialization from dataset -----
 @torch.no_grad()
 def init_prototypes_from_data(model, csv_path, emb_mode="both", input_l2norm=False):
     ds = SERProtoDataset(csv_path, emb_mode=emb_mode, input_l2norm=input_l2norm)
@@ -683,7 +850,7 @@ def init_prototypes_from_data(model, csv_path, emb_mode="both", input_l2norm=Fal
     for batch_x, y, _ in loader:
         x_e2v = batch_x["x_e2v"].to(device) if batch_x["x_e2v"] is not None else None
         x_wavlm = batch_x["x_wavlm"].to(device) if batch_x["x_wavlm"] is not None else None
-        # Sadece z’yi al
+        # Only use z (projected embeddings) for computing class centroids
         _, z, _ = model(x_e2v=x_e2v, x_wavlm=x_wavlm)
         y = y.to(device)
         for c in range(C):

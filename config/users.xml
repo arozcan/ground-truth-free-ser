@@ -1,0 +1,27 @@
+<users>
+    <user name="usr01" password="48217" group="group_1" />
+    <user name="usr02" password="15973" group="group_2" />
+    <user name="usr03" password="73490" group="group_3" />
+    <user name="usr04" password="26841" group="group_4" />
+    <user name="usr05" password="91534" group="group_5" />
+    <user name="usr06" password="37028" group="group_1" />
+    <user name="usr07" password="85416" group="group_2" />
+    <user name="usr08" password="12957" group="group_3" />
+    <user name="usr09" password="60385" group="group_4" />
+    <user name="usr10" password="47261" group="group_5" />
+    <user name="usr11" password="58634" group="group_1" />
+    <user name="usr12" password="92057" group="group_2" />
+    <user name="usr13" password="31824" group="group_3" />
+    <user name="usr14" password="75092" group="group_4" />
+    <user name="usr15" password="84103" group="group_5" />
+    <user name="usr16" password="25796" group="group_1" />
+    <user name="usr17" password="69420" group="group_2" />
+    <user name="usr18" password="13658" group="group_3" />
+    <user name="usr19" password="80537" group="group_4" />
+    <user name="usr20" password="47290" group="group_5" />
+    <user name="usr21" password="31948" group="group_1" />
+    <user name="usr22" password="56792" group="group_2" />
+    <user name="usr23" password="28063" group="group_3" />
+    <user name="usr24" password="91587" group="group_4" />
+    <user name="usr25" password="45671" group="group_5" />
+</users>

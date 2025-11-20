@@ -1,0 +1,638 @@
+{
+  "overall": {
+    "accuracy": 0.775,
+    "mean_eas": 0.8760909521153994,
+    "classification_report": {
+      "angry": {
+        "precision": 0.7142857142857143,
+        "recall": 0.75,
+        "f1-score": 0.7317073170731707,
+        "support": 40.0
+      },
+      "disgusted": {
+        "precision": 0.7857142857142857,
+        "recall": 0.825,
+        "f1-score": 0.8048780487804879,
+        "support": 40.0
+      },
+      "fearful": {
+        "precision": 0.9285714285714286,
+        "recall": 0.65,
+        "f1-score": 0.7647058823529411,
+        "support": 40.0
+      },
+      "happy": {
+        "precision": 0.7045454545454546,
+        "recall": 0.775,
+        "f1-score": 0.7380952380952381,
+        "support": 40.0
+      },
+      "neutral": {
+        "precision": 0.7391304347826086,
+        "recall": 0.85,
+        "f1-score": 0.7906976744186046,
+        "support": 40.0
+      },
+      "sad": {
+        "precision": 0.7551020408163265,
+        "recall": 0.925,
+        "f1-score": 0.8314606741573034,
+        "support": 40.0
+      },
+      "surprised": {
+        "precision": 0.896551724137931,
+        "recall": 0.65,
+        "f1-score": 0.7536231884057971,
+        "support": 40.0
+      },
+      "accuracy": 0.775,
+      "macro avg": {
+        "precision": 0.7891287261219642,
+        "recall": 0.7750000000000001,
+        "f1-score": 0.7735954318976489,
+        "support": 280.0
+      },
+      "weighted avg": {
+        "precision": 0.7891287261219642,
+        "recall": 0.775,
+        "f1-score": 0.773595431897649,
+        "support": 280.0
+      }
+    },
+    "confusion_matrix": {
+      "angry": {
+        "angry": 30,
+        "disgusted": 3,
+        "fearful": 2,
+        "happy": 1,
+        "neutral": 0,
+        "sad": 1,
+        "surprised": 5
+      },
+      "disgusted": {
+        "angry": 4,
+        "disgusted": 33,
+        "fearful": 4,
+        "happy": 0,
+        "neutral": 0,
+        "sad": 0,
+        "surprised": 1
+      },
+      "fearful": {
+        "angry": 0,
+        "disgusted": 0,
+        "fearful": 26,
+        "happy": 0,
+        "neutral": 0,
+        "sad": 1,
+        "surprised": 1
+      },
+      "happy": {
+        "angry": 0,
+        "disgusted": 0,
+        "fearful": 2,
+        "happy": 31,
+        "neutral": 5,
+        "sad": 0,
+        "surprised": 6
+      },
+      "neutral": {
+        "angry": 2,
+        "disgusted": 4,
+        "fearful": 0,
+        "happy": 5,
+        "neutral": 34,
+        "sad": 1,
+        "surprised": 0
+      },
+      "sad": {
+        "angry": 4,
+        "disgusted": 0,
+        "fearful": 4,
+        "happy": 2,
+        "neutral": 1,
+        "sad": 37,
+        "surprised": 1
+      },
+      "surprised": {
+        "angry": 0,
+        "disgusted": 0,
+        "fearful": 2,
+        "happy": 1,
+        "neutral": 0,
+        "sad": 0,
+        "surprised": 26
+      }
+    }
+  },
+  "per_tts": {
+    "azure": {
+      "N": 70,
+      "accuracy": 0.8571428571428571,
+      "mean_eas": 0.8924694631780897,
+      "classification_report": {
+        "angry": {
+          "precision": 0.7777777777777778,
+          "recall": 0.7,
+          "f1-score": 0.7368421052631579,
+          "support": 10.0
+        },
+        "disgusted": {
+          "precision": 0.875,
+          "recall": 0.7,
+          "f1-score": 0.7777777777777778,
+          "support": 10.0
+        },
+        "fearful": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "happy": {
+          "precision": 0.8181818181818182,
+          "recall": 0.9,
+          "f1-score": 0.8571428571428571,
+          "support": 10.0
+        },
+        "neutral": {
+          "precision": 0.8181818181818182,
+          "recall": 0.9,
+          "f1-score": 0.8571428571428571,
+          "support": 10.0
+        },
+        "sad": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "surprised": {
+          "precision": 0.8888888888888888,
+          "recall": 0.8,
+          "f1-score": 0.8421052631578947,
+          "support": 10.0
+        },
+        "accuracy": 0.8571428571428571,
+        "macro avg": {
+          "precision": 0.8587662337662338,
+          "recall": 0.8571428571428571,
+          "f1-score": 0.8543002527964934,
+          "support": 70.0
+        },
+        "weighted avg": {
+          "precision": 0.8587662337662337,
+          "recall": 0.8571428571428571,
+          "f1-score": 0.8543002527964934,
+          "support": 70.0
+        }
+      },
+      "confusion_matrix": {
+        "angry": {
+          "angry": 7,
+          "disgusted": 1,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 1
+        },
+        "disgusted": {
+          "angry": 1,
+          "disgusted": 7,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "fearful": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 10,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "happy": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 9,
+          "neutral": 1,
+          "sad": 0,
+          "surprised": 1
+        },
+        "neutral": {
+          "angry": 0,
+          "disgusted": 2,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 9,
+          "sad": 0,
+          "surprised": 0
+        },
+        "sad": {
+          "angry": 2,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 10,
+          "surprised": 0
+        },
+        "surprised": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 1,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 8
+        }
+      }
+    },
+    "cosyvoice2": {
+      "N": 70,
+      "accuracy": 0.5857142857142857,
+      "mean_eas": 0.8452988352094378,
+      "classification_report": {
+        "angry": {
+          "precision": 0.36363636363636365,
+          "recall": 0.4,
+          "f1-score": 0.38095238095238093,
+          "support": 10.0
+        },
+        "disgusted": {
+          "precision": 0.6666666666666666,
+          "recall": 0.8,
+          "f1-score": 0.7272727272727273,
+          "support": 10.0
+        },
+        "fearful": {
+          "precision": 0.6,
+          "recall": 0.3,
+          "f1-score": 0.4,
+          "support": 10.0
+        },
+        "happy": {
+          "precision": 0.8333333333333334,
+          "recall": 0.5,
+          "f1-score": 0.625,
+          "support": 10.0
+        },
+        "neutral": {
+          "precision": 0.6,
+          "recall": 0.9,
+          "f1-score": 0.72,
+          "support": 10.0
+        },
+        "sad": {
+          "precision": 0.5,
+          "recall": 0.8,
+          "f1-score": 0.6153846153846154,
+          "support": 10.0
+        },
+        "surprised": {
+          "precision": 0.8,
+          "recall": 0.4,
+          "f1-score": 0.5333333333333333,
+          "support": 10.0
+        },
+        "accuracy": 0.5857142857142857,
+        "macro avg": {
+          "precision": 0.6233766233766235,
+          "recall": 0.5857142857142857,
+          "f1-score": 0.5717061509918653,
+          "support": 70.0
+        },
+        "weighted avg": {
+          "precision": 0.6233766233766235,
+          "recall": 0.5857142857142857,
+          "f1-score": 0.5717061509918654,
+          "support": 70.0
+        }
+      },
+      "confusion_matrix": {
+        "angry": {
+          "angry": 4,
+          "disgusted": 0,
+          "fearful": 2,
+          "happy": 1,
+          "neutral": 0,
+          "sad": 1,
+          "surprised": 3
+        },
+        "disgusted": {
+          "angry": 2,
+          "disgusted": 8,
+          "fearful": 1,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 1
+        },
+        "fearful": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 3,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 1,
+          "surprised": 1
+        },
+        "happy": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 1,
+          "happy": 5,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "neutral": {
+          "angry": 2,
+          "disgusted": 2,
+          "fearful": 0,
+          "happy": 2,
+          "neutral": 9,
+          "sad": 0,
+          "surprised": 0
+        },
+        "sad": {
+          "angry": 2,
+          "disgusted": 0,
+          "fearful": 2,
+          "happy": 2,
+          "neutral": 1,
+          "sad": 8,
+          "surprised": 1
+        },
+        "surprised": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 1,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 4
+        }
+      }
+    },
+    "genai": {
+      "N": 70,
+      "accuracy": 0.9428571428571428,
+      "mean_eas": 0.8968723969800132,
+      "classification_report": {
+        "angry": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "disgusted": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "fearful": {
+          "precision": 1.0,
+          "recall": 0.8,
+          "f1-score": 0.8888888888888888,
+          "support": 10.0
+        },
+        "happy": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 10.0
+        },
+        "neutral": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526315,
+          "support": 10.0
+        },
+        "sad": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 10.0
+        },
+        "surprised": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1-score": 0.9473684210526315,
+          "support": 10.0
+        },
+        "accuracy": 0.9428571428571428,
+        "macro avg": {
+          "precision": 0.9523809523809524,
+          "recall": 0.942857142857143,
+          "f1-score": 0.9431153641679958,
+          "support": 70.0
+        },
+        "weighted avg": {
+          "precision": 0.9523809523809524,
+          "recall": 0.9428571428571428,
+          "f1-score": 0.9431153641679958,
+          "support": 70.0
+        }
+      },
+      "confusion_matrix": {
+        "angry": {
+          "angry": 10,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "disgusted": {
+          "angry": 0,
+          "disgusted": 10,
+          "fearful": 2,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "fearful": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 8,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "happy": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 10,
+          "neutral": 1,
+          "sad": 0,
+          "surprised": 1
+        },
+        "neutral": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 9,
+          "sad": 0,
+          "surprised": 0
+        },
+        "sad": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 10,
+          "surprised": 0
+        },
+        "surprised": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 9
+        }
+      }
+    },
+    "openai": {
+      "N": 70,
+      "accuracy": 0.7142857142857143,
+      "mean_eas": 0.8697231130940574,
+      "classification_report": {
+        "angry": {
+          "precision": 0.75,
+          "recall": 0.9,
+          "f1-score": 0.8181818181818182,
+          "support": 10.0
+        },
+        "disgusted": {
+          "precision": 0.8,
+          "recall": 0.8,
+          "f1-score": 0.8,
+          "support": 10.0
+        },
+        "fearful": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1-score": 0.6666666666666666,
+          "support": 10.0
+        },
+        "happy": {
+          "precision": 0.4666666666666667,
+          "recall": 0.7,
+          "f1-score": 0.56,
+          "support": 10.0
+        },
+        "neutral": {
+          "precision": 0.6363636363636364,
+          "recall": 0.7,
+          "f1-score": 0.6666666666666666,
+          "support": 10.0
+        },
+        "sad": {
+          "precision": 0.8181818181818182,
+          "recall": 0.9,
+          "f1-score": 0.8571428571428571,
+          "support": 10.0
+        },
+        "surprised": {
+          "precision": 0.8333333333333334,
+          "recall": 0.5,
+          "f1-score": 0.625,
+          "support": 10.0
+        },
+        "accuracy": 0.7142857142857143,
+        "macro avg": {
+          "precision": 0.7577922077922077,
+          "recall": 0.7142857142857144,
+          "f1-score": 0.7133797155225726,
+          "support": 70.0
+        },
+        "weighted avg": {
+          "precision": 0.7577922077922078,
+          "recall": 0.7142857142857143,
+          "f1-score": 0.7133797155225725,
+          "support": 70.0
+        }
+      },
+      "confusion_matrix": {
+        "angry": {
+          "angry": 9,
+          "disgusted": 2,
+          "fearful": 0,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 1
+        },
+        "disgusted": {
+          "angry": 1,
+          "disgusted": 8,
+          "fearful": 1,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "fearful": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 5,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 0
+        },
+        "happy": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 1,
+          "happy": 7,
+          "neutral": 3,
+          "sad": 0,
+          "surprised": 4
+        },
+        "neutral": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 0,
+          "happy": 3,
+          "neutral": 7,
+          "sad": 1,
+          "surprised": 0
+        },
+        "sad": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 2,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 9,
+          "surprised": 0
+        },
+        "surprised": {
+          "angry": 0,
+          "disgusted": 0,
+          "fearful": 1,
+          "happy": 0,
+          "neutral": 0,
+          "sad": 0,
+          "surprised": 5
+        }
+      }
+    }
+  }
+}

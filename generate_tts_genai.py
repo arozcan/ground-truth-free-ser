@@ -18,7 +18,7 @@ FOLD = 5
 OUTPUT_DIR = f"output/sentences/genai"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Prompt şablonu: duyguyu dahil ediyor
+# Prompt template: includes the target emotion in the instruction
 def build_prompt(sentence, emotion):
     return f"Say the following sentence in a {emotion} tone: '{sentence}'"
 

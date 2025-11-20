@@ -1,0 +1,8 @@
+{
+  "agreement_accuracy_midpoint": 0.6964285714285714,
+  "thresholds": {
+    "eas_threshold": 4.0,
+    "human_threshold": 4.0,
+    "eas_scale": "1..7"
+  }
+}

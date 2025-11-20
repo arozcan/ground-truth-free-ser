@@ -25,15 +25,14 @@ def iter_wavs(tts_roots, num_per_fold=70, fold_prefix="fold_",
               min_fold=None, max_fold=None):
     """
     Yields tuples: (wav_path, index:int, fold_num:int or None, tts:str)
-    fold_* adını parse ederek fold_num çıkarır (fold_1, fold_1_nova -> 1).
-    min_fold/max_fold verilirse o aralık dışındakileri atar.
-    tts: kök klasörün adı (ör. 'azure', 'cosyvoice2', vb.)
+    Parses fold_* names to extract fold_num (e.g., fold_1, fold_1_nova -> 1).
+    min_fold/max_fold given, skips outside that range.
+    tts: root folder name ('azure', 'cosyvoice2', ext.)
     """
     for root in tts_roots:
-        tts_name = Path(root).name  # <-- TTS adı buradan geliyor
+        tts_name = Path(root).name 
         for fold_dir in sorted(glob(os.path.join(root, f"{fold_prefix}*"))):
             fold_name = Path(fold_dir).name
-            # fold numarasını okumayı dene
             fold_num = None
             parts = fold_name.split("_")
             if len(parts) >= 2 and parts[1].isdigit():
@@ -44,12 +43,12 @@ def iter_wavs(tts_roots, num_per_fold=70, fold_prefix="fold_",
             for i in range(1, num_per_fold + 1):
                 wav_path = os.path.join(fold_dir, f"{i}.wav")
                 if os.path.exists(wav_path):
-                    yield wav_path, i, fold_num, tts_name  # <-- tts_name eklendi
+                    yield wav_path, i, fold_num, tts_name
 
 def stratified_group_split(groups, val_ratio, seed=1337, ensure_at_least_one_per_class=True):
     """
-    groups: dict[prompt_id] -> list[rows]; rows[0]['emotion'] etiket olarak alınır.
-    Dönüş: (train_keys, val_keys) set'leri
+    groups: dict[prompt_id] -> list[rows]; rows[0]['emotion'] taken as label.
+    Returns: (train_keys, val_keys) sets
     """
     rng = random.Random(seed)
     label_to_groups = defaultdict(list)
@@ -57,7 +56,7 @@ def stratified_group_split(groups, val_ratio, seed=1337, ensure_at_least_one_per
         label = rows[0]['emotion']
         label_to_groups[label].append(pid)
 
-    # Karıştır
+    # Shuffle
     for pids in label_to_groups.values():
         rng.shuffle(pids)
 
@@ -65,7 +64,7 @@ def stratified_group_split(groups, val_ratio, seed=1337, ensure_at_least_one_per
     total_groups = len(all_pids)
     target_val = max(1, int(round(total_groups * val_ratio)))
 
-    # Sınıf bazında taban seçim: floor(len * ratio)
+    # Base selection per class: floor(len * ratio)
     per_label_take = {}
     remainders = []
     current_val = 0
@@ -81,24 +80,24 @@ def stratified_group_split(groups, val_ratio, seed=1337, ensure_at_least_one_per
         remainders.append((rem, label))
         current_val += take
 
-    # En az 1 kuralı (opsiyonel)
+    # At-least-one rule (optional)
     if ensure_at_least_one_per_class:
         for label, pids in label_to_groups.items():
             if len(pids) > 0 and per_label_take[label] == 0:
                 per_label_take[label] = 1
                 current_val += 1
 
-    # Hedefe ulaşmak için ince ayar:
-    # Fazla aldıysak azalt; az aldıysak arttır.
+    # Fine adjustment to reach the target:
+    # Decrease if too many; increase if too few.
     def labels_sorted_for_add():
-        # fractional remainder büyük olanları önce ekle
+        # Add groups with larger fractional remainder first
         return [lbl for _, lbl in sorted(remainders, key=lambda x: x[0], reverse=True)]
 
     def labels_sorted_for_drop():
-        # fractional remainder küçük olanları önce düş
+        # Remove groups with smaller fractional remainder first
         return [lbl for _, lbl in sorted(remainders, key=lambda x: x[0])]
 
-    # Üst sınıra saygı: per_label_take[label] <= len(pids)
+    # Respect upper limits: per_label_take[label] <= len(pids)
     for label, pids in label_to_groups.items():
         per_label_take[label] = min(per_label_take[label], len(pids))
 
@@ -120,14 +119,14 @@ def stratified_group_split(groups, val_ratio, seed=1337, ensure_at_least_one_per
             for lbl in order:
                 if current_val <= target_val:
                     break
-                # Düşürürken sınıfı tamamen sıfıra indirmemeye çalış (eğer ensure aktifse)
+                # Avoid reducing a class to zero (if ensure-at-least-one is enabled)
                 min_allowed = 1 if (ensure_at_least_one_per_class and len(label_to_groups[lbl]) > 0) else 0
                 if per_label_take[lbl] > min_allowed:
                     per_label_take[lbl] -= 1
                     current_val -= 1
             i += 1
 
-    # Son seçim
+    # Final selection
     val_keys = set()
     for label, pids in label_to_groups.items():
         take = per_label_take[label]
@@ -146,23 +145,23 @@ def main():
     ap.add_argument("--val_out", default="val.csv")
     ap.add_argument("--num_per_fold", type=int, default=70)
     ap.add_argument("--val_ratio", type=float, default=0.2,
-                    help="Validation oranı (0-1)")
+                    help="Validation ratio (0-1)")
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--group_by", choices=["text", "text_speaker"], default="text",
-                    help="prompt gruplama: text=idx{index}, text_speaker=idx{index}_f{fold}")
+                    help="prompt grouping: text=idx{index}, text_speaker=idx{index}_f{fold}")
     ap.add_argument("--min_fold", type=int, default=None,
-                    help="Yalnızca bu alt sınırdaki fold ve üstünü al (opsiyonel)")
+                    help="Only include folds greater than or equal to this lower bound (optional)")
     ap.add_argument("--max_fold", type=int, default=None,
-                    help="Yalnızca bu üst sınırdaki fold ve altını al (opsiyonel)")
+                    help="Only include folds less than or equal to this upper bound (optional)")
     ap.add_argument("--ensure_at_least_one_per_class", action="store_true",
-                    help="Val setinde her sınıftan en az 1 grup bulundurmaya çalış")
+                    help="Try to ensure at least one group per class in the validation set")
     args = ap.parse_args()
 
     random.seed(args.seed)
 
     idx2emo = load_index_to_emotion(args.emotion_csv)
 
-    # Grupları topla
+    # Collect groups
     groups = defaultdict(list)  # key -> list of rows
     for wav_path, index, fold_num, tts_name in iter_wavs(
         args.tts_roots,
@@ -178,11 +177,11 @@ def main():
         else:
             prompt_id = f"idx{index}"
 
-        # tts alanını da satıra ekliyoruz
+        # Add the TTS field to each row
         row = {"wav_path": wav_path, "emotion": emo, "prompt_id": prompt_id, "tts": tts_name}
         groups[prompt_id].append(row)
 
-    # Stratified split (grup bazlı)
+    # Stratified split (group-based)
     train_keys, val_keys = stratified_group_split(
         groups,
         val_ratio=args.val_ratio,
@@ -196,11 +195,10 @@ def main():
     for k in val_keys:
         val_rows.extend(groups[k])
 
-    # Yazıcı
+    # Writer
     def write_csv(path, rows):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", newline="", encoding="utf-8") as f:
-            # tts sütununu ekliyoruz
             w = csv.DictWriter(f, fieldnames=["wav_path", "emotion", "prompt_id", "tts"])
             w.writeheader()
             w.writerows(rows)
@@ -208,7 +206,6 @@ def main():
     write_csv(args.train_out, train_rows)
     write_csv(args.val_out, val_rows)
 
-    # Özetler
     def class_count(rows):
         c = Counter([r["emotion"] for r in rows])
         return {e: c.get(e, 0) for e in EMOTIONS}
@@ -223,7 +220,6 @@ def main():
     print(f"[rows/train by class]  :", class_count(train_rows))
     print(f"[rows/val   by class]  :", class_count(val_rows))
 
-    # Örnek satırlar
     if train_rows:
         print("[sample][train]:", train_rows[0])
     if val_rows:
